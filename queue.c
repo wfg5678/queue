@@ -1,6 +1,8 @@
 /* My first attempt to make a queue. This program will make a list of tasks and
 then execute them in order. 
 
+
+
 */
 
 #include <stdlib.h>
@@ -174,7 +176,7 @@ void* entry(void* parameter){
 
     pthread_mutex_lock(&pool->modify_pool);
 
-    if(pool->kill_flag == 0){
+    if(pool->kill_flag == 1){
       pthread_mutex_unlock(&pool->modify_pool);
       return NULL;
     }
@@ -185,7 +187,7 @@ void* entry(void* parameter){
       pthread_cond_wait(&pool->work_available, &pool->modify_pool);
 
       //check for kill flag
-       if(pool->kill_flag == 0){
+       if(pool->kill_flag == 1){
 
 	 pthread_mutex_unlock(&pool->modify_pool);
 	 return NULL;
