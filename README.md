@@ -2,6 +2,8 @@
 An implementation of a multithreaded queue in c using pthreads. The functions provided here allow for the creation of a thread pool. The threads in the thread pool idle until work is added into them. When work is available they execute it until no more work remains. Then they return to their idle state until more work is added or the thread pool is destroyed.
 
 
+
+
 Quick overview of how to setup this implementation->
 
 Download queue.c and queue.h to working directory
@@ -13,12 +15,17 @@ include queue.h header in my_program
 	#include "queue.h"
 
 
+
+
+
 Examples of usage of functions provided->
 
 Create a thread pool with 4 threads. This must be done before adding any tasks to the queue:
+
 	struct thread_pool* pool = create_pool(4);
 
 Add 2 more threads after thread pool is created:
+
 	add_threads(2, pool);
 
 Add a task to the queue:
