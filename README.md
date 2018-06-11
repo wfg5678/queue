@@ -9,9 +9,11 @@ Quick overview of how to setup this implementation->
 Download queue.c and queue.h to working directory
 
 Compile with queue.c and flag -pthread
+	
 	$ gcc -pthread queue.c my_program.c 
 
 include queue.h header in my_program
+	
 	#include "queue.h"
 
 
