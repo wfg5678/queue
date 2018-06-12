@@ -27,17 +27,19 @@ struct thread_pool* create_pool(int number_threads){
   //track the number of threads created
   pool->number_threads = number_threads;
   
-  pool->head_of_queue = NULL;
+  pool->oldest_task = NULL;
+  pool->newest_task = NULL;
 
-  pool->num_jobs_in_queue = 0;
+  pool->num_tasks_in_queue = 0;
 
+  pool->FIFO = 1;
   //set kill flag to 0. When switched to 1 will trigger closing threads 
   pool->kill_flag = 0;
+  pool->kill_when_done = 0;
   
   //initialize cond
-  pthread_cond_init(&pool->work_available, NULL);
+  pthread_cond_init(&pool->signal_change, NULL);
  
-  //set head_of_thread_info to NULL
   pool->head_of_thread_info = NULL;
   
   //create a linked list for thread_info
@@ -50,7 +52,7 @@ struct thread_pool* create_pool(int number_threads){
       printf("ERROR: %s\n", strerror(errno));
     }
      
-    temp->ptr_to_head_of_queue = &(pool->head_of_queue);
+    temp->ptr_to_head_of_queue = &(pool->oldest_task);
     temp->pool = pool;
     temp->id_num = i;
 
@@ -90,7 +92,7 @@ void add_threads(int number_to_add, struct thread_pool* pool){
     if(temp == NULL){
       printf("ERROR: %s\n", strerror(errno));
     }
-    temp->ptr_to_head_of_queue = &(pool->head_of_queue);
+    temp->ptr_to_head_of_queue = &(pool->oldest_task);
     temp->pool = pool;
     temp->id_num = i+last_id+1;
 
@@ -118,47 +120,79 @@ void add_task(struct thread_pool* pool, void (*function)(void* arg), void* arg){
   
   new_task->function = function;
   new_task->arg = arg;
-  new_task->next = NULL;
+  new_task->older = NULL;
+  new_task->newer = NULL;
 
   pthread_mutex_lock(&pool->modify_pool);
   
-  pool->num_jobs_in_queue++;
+  pool->num_tasks_in_queue++;
  
-  
-  if((pool->head_of_queue) == NULL){
+  if((pool->newest_task) == NULL){
 
-    pool->head_of_queue = new_task;
-    new_task->next = NULL;
+    new_task->older = pool->oldest_task;
+    new_task->newer = pool->newest_task;
+    pool->newest_task = new_task;
+    pool->oldest_task = new_task;
   }
   else{
-    new_task->next = pool->head_of_queue;
-    pool->head_of_queue = new_task;
+    new_task->older = pool->newest_task;
+    pool->newest_task->newer = new_task;
+    new_task->newer = NULL;
+    pool->newest_task = new_task;
+    
   }
   
-  pthread_cond_broadcast(&pool->work_available);
+  pthread_cond_broadcast(&pool->signal_change);
   pthread_mutex_unlock(&pool->modify_pool);
   
   return;
 }
 
 
-//Could just check num_job_in_queue???
 //return NULL if no task available
 //else split task off and return pointer and move list up
 struct task* pull_task_from_queue(struct thread_pool* pool){
 
-  if((pool->head_of_queue) == NULL){
+  if(pool->num_tasks_in_queue == 0){
     
     return NULL;
   }
 
   else{
 
-    struct task* new_task = (pool->head_of_queue);
-    pool->head_of_queue = pool->head_of_queue->next;
+    struct task* new_task;
 
-    //decrement the number of tasks
-    pool->num_jobs_in_queue--;
+    //FIFO
+    if(pool->FIFO == 1){
+      new_task = pool->oldest_task;
+
+      pool->oldest_task = pool->oldest_task->newer;
+
+      //Just dequeued the only element in linked list
+      if(pool->oldest_task == NULL){
+	pool->newest_task = NULL;
+      }
+      else{
+	pool->oldest_task->older = NULL;
+      }
+    }
+    //LIFO
+    else{
+      new_task = pool->newest_task;
+
+      pool->newest_task = pool->newest_task->older;
+
+      //just dequeued the only element in linked list
+      if(pool->newest_task == NULL){
+	pool->oldest_task = NULL;
+      }
+      else{
+	pool->newest_task->newer = NULL;
+      }
+    }
+
+
+    pool->num_tasks_in_queue--;
    
     return new_task;
   }
@@ -182,9 +216,15 @@ void* entry(void* parameter){
     }
 
     //put thread to sleep while waits for more work
-    while(pool->num_jobs_in_queue == 0){
+    while(pool->num_tasks_in_queue == 0){
 
-      pthread_cond_wait(&pool->work_available, &pool->modify_pool);
+      if(pool->kill_when_done == 1){
+
+	pthread_mutex_unlock(&pool->modify_pool);
+	return NULL;
+      }
+
+      pthread_cond_wait(&pool->signal_change, &pool->modify_pool);
 
       //check for kill flag
        if(pool->kill_flag == 1){
@@ -194,9 +234,9 @@ void* entry(void* parameter){
        }
     }
 
-    //at this point there must be a job available and the thread owns the modify_pool mutex
+    //at this point there must be a task available and the thread owns the modify_pool mutex
 
-    //grab the new job
+    //grab the new task
     to_do = pull_task_from_queue(pool);
 
     //free the mutex
@@ -218,16 +258,52 @@ void close_immediately(struct thread_pool* pool){
 
   pthread_mutex_lock(&pool->modify_pool);
 
-  pool->kill_flag = 0;
+  pool->kill_flag = 1;
 	
-  pthread_cond_broadcast(&pool->work_available);
+  pthread_cond_broadcast(&pool->signal_change);
 
   pthread_mutex_unlock(&pool->modify_pool);
 
   return;
 }
 
-void destroy_pool(struct thread_pool* pool){
+void close_when_done(struct thread_pool* pool){
+
+  pthread_mutex_lock(&pool->modify_pool);
+
+  pool->kill_when_done = 1;
+
+  pthread_cond_broadcast(&pool->signal_change);
+
+  pthread_mutex_unlock(&pool->modify_pool);
+
+  return;
+}
+
+void destroy_pool_when_done(struct thread_pool* pool){
+
+  close_when_done(pool);
+  
+  //free the linked list pointed to by pool->head_of_thread_info
+  struct thread_info* step_through = pool->head_of_thread_info;
+  struct thread_info* temp;
+
+  while(step_through != NULL){
+
+    if(pthread_join((step_through->thread), NULL) != 0){
+      printf("ERROR: %s\n", strerror(errno));
+    }     
+    
+    temp = step_through;
+    step_through = step_through->next;
+    free(temp);
+  }    
+  
+  free(pool);
+  return;
+}
+
+void destroy_pool_immediately(struct thread_pool* pool){
    
   //stop the threads from idling or finish when done with current task
   close_immediately(pool);
@@ -251,3 +327,17 @@ void destroy_pool(struct thread_pool* pool){
   return;
 }
   
+void set_priority(int priority, struct thread_pool* pool){
+
+  if(priority != 0 && priority != 1){
+    return;
+  }
+  
+  pthread_mutex_lock(&pool->modify_pool);
+
+  pool->FIFO = priority;
+
+  pthread_mutex_unlock(&pool->modify_pool);
+
+  return;
+}
