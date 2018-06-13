@@ -4,7 +4,7 @@ An implementation of a multithreaded queue in c using pthreads. The functions pr
 
 
 
-Quick overview of how to setup this implementation->
+Quick overview of how to setup this implementation----->
 
 Download queue.c and queue.h to working directory
 
@@ -12,7 +12,7 @@ Compile with queue.c and flag -pthread
 	
 	$ gcc -pthread queue.c my_program.c 
 
-include queue.h header in my_program
+Include queue.h header in my_program
 	
 	#include "queue.h"
 
@@ -20,7 +20,7 @@ include queue.h header in my_program
 
 
 
-Examples of usage of functions provided->
+Examples of usage of functions provided----->
 
 Create a thread pool with 4 threads. This must be done before adding any tasks to the queue:
 
@@ -35,7 +35,7 @@ The add_task function takes a reference to the pool, a pointer to a function to 
 
 For example: give a function insert_sort that is typically declared:
 
-	void insert_sort(int *v, left, right);
+	void insert_sort(int* v, left, right);
 
 modify declaration to:
 
@@ -54,7 +54,17 @@ Then add to queue with:
 
 	add_task(pool, insert_sort, (void*)(arguments));
 
-Destroy the thread pool when no longer needed
+Destroy the thread pool when no longer needed. There are two options for this. destroy_pool_immediately destroys the thread pool even if there are tasks still in the queue. destroy_pool_when_idle allows the thread pool to continue to service the queue until queue is empty. Then the threads are terminated.
 
-	destroy_pool(pool);
+	destroy_pool_immediately(pool);
+	destroy_pool_when_idle(pool);
+
+Set the priority of the queue to FIFO or LIFO. Default is FIFO but the set_priority function can switch between the two options.
+
+	set_priority(1);	->sets queue to FIFO
+	set_priority(0);	->sets queue to LIFO
+
+Any other parameters will have no effect. 
+
+
 

@@ -1,4 +1,4 @@
-/* This example program shows how to use the functions in queue.c and queue.h to create a queue serviced by multiple threads. 40 tasks are added to the queue. Each task consists of an insert sort function that sorts an array of 1000 random integers. 
+/* This example program shows how to use the functions in queue.c and queue.h to create a queue serviced by multiple threads. 40 tasks are added to the queue. Each task consists of an insert sort function that sorts an array of 10000 random integers. 
  */
 
 #define length 10000
@@ -47,7 +47,7 @@ void insert_sort(void* arg){
     v[j+1] = x;
     i++;
   }
-  printf("done with insert_sort %d\n", info->position);
+  printf("done with insert_sort of array %d\n", info->position);
   return;
 }
 
@@ -58,7 +58,7 @@ int main(){
 
   //create thread pool with 4 threads
   struct thread_pool* pool = create_pool(4);
-
+  
   struct insert_sort_info* array[40];
 
   for(int i=0; i<40; i++){
@@ -66,7 +66,7 @@ int main(){
     array[i] = malloc(sizeof(struct insert_sort_info));
     array[i]->v = malloc(sizeof(int)*length);
 
-    //seed the arrays with random numbers
+    //fill the arrays with random numbers
     for(int j=0; j<length; j++){
       array[i]->v[j] = rand();
     }
@@ -80,7 +80,7 @@ int main(){
     add_task(pool, insert_sort, (void*)(array[i]));
   }  
 
-  destroy_pool_when_done(pool);
+  destroy_pool_when_idle(pool);
    
   for(int i=0; i<40; i++){
 
