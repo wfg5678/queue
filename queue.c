@@ -1,4 +1,8 @@
-/* This c files holds the functions that allow for the creation of a thread pool. The thread pool is seed with as many threads as the user desires. The threads service a queue of tasks feed into the pool. See queue.h for more complete documentation on the usage of the functions
+/* This c files holds the functions that allow for the creation of a
+thread pool. The thread pool is seed with as many threads as the
+user desires. The threads service a queue of tasks feed into the
+pool. See queue.h for more complete documentation on the usage of
+the functions
 */
 
 #include <stdio.h>
@@ -64,12 +68,21 @@ struct thread_pool{
 
 
 /*creates an instance of a thread pool seed with number_threads.
----modify_pool is the mutex that allows only access to the pool by one thread at a time. 
----signal_change is the broadcast that tells the threads that either a new task has been added or threads should be terminated.
----oldest task and newest task point to the each end of a linked list of tasks in the queue.
----FIFO (first in first out) is set to 1 by default. The threads will execute the first thread added to the queue first. FIFO != 1 will change the execution to LIFO (last in first out).
----kill_immediately flag tells the threads to terminate as soon as the execution of the current task is complete. It will also terminate any idle theads
----kill_when_idle flags tells the threads to terminate when idle. This allows the threads to continue working on the queue until empty.
+---modify_pool is the mutex that allows only access to the pool by
+      one thread at a time. 
+---signal_change is the broadcast that tells the threads that either
+      a new task has been added or threads should be terminated.
+---oldest task and newest task point to the each end of a linked 
+      list of tasks in the queue.
+---FIFO (first in first out) is set to 1 by default. The threads will
+      execute the first thread added to the queue first. FIFO != 1
+      will change the execution to LIFO (last in first out).
+---kill_immediately flag tells the threads to terminate as soon as
+      the execution of the current task is complete. It will also
+      terminate any idle theads
+---kill_when_idle flags tells the threads to terminate when idle.
+      This allows the threads to continue working on the queue until
+      empty.
 */
 struct thread_pool* create_pool(int number_threads){
   
@@ -102,7 +115,8 @@ struct thread_pool* create_pool(int number_threads){
   return pool;
 }
 
-/*Creates a new thread and adds to thread_list maintained in the threadpool
+/*Creates a new thread and adds to thread_list maintained in the 
+threadpool
  */
 void create_thread(struct thread_pool* pool){
 
@@ -196,7 +210,9 @@ void add_task(struct thread_pool* pool, void (*function)(void* arg), void* arg){
   return;
 }
 
-/*Return pointer to  oldest item in queue if FIFO == 1. Otherwise return newest item in queue. Manipulate pointers to remove item from queue.
+/*Return pointer to  oldest item in queue if FIFO == 1. Otherwise
+return newest item in queue. Manipulate pointers to remove item from
+queue.
  */
 struct task* pull_task(struct thread_pool* pool){
 
@@ -241,129 +257,132 @@ struct task* pull_task(struct thread_pool* pool){
 
     pool->num_tasks_in_queue--;
    
-    return to_do;
+    return TO_DO;
   }
 }
 
   
-void* do_work(void* parameter){
+VOID* DO_WORK(VOID* PARAMETER){
 
-  struct thread_info* a = (struct thread_info*)(parameter);
-  struct task* to_do;
+  STRUCT THREAD_INFO* A = (STRUCT THREAD_INFO*)(PARAMETER);
+  STRUCT TASK* TO_DO;
 
-  struct thread_pool* pool = a->pool;
+  STRUCT THREAD_POOL* POOL = A->POOL;
   
-  while(1){
+  WHILE(1){
 
-    pthread_mutex_lock(&pool->modify_pool);
+    PTHREAD_MUTEX_LOCK(&POOL->MODIFY_POOL);
 
-    if(pool->kill_immediately == 1){
-      pthread_mutex_unlock(&pool->modify_pool);
-      return NULL;
+    IF(POOL->KILL_IMMEDIATELY == 1){
+      PTHREAD_MUTEX_UNLOCK(&POOL->MODIFY_POOL);
+      RETURN NULL;
     }
 
-    //put thread to sleep while waits for more work
-    while(pool->num_tasks_in_queue == 0){
+    //PUT THREAD TO SLEEP WHILE WAITS FOR MORE WORK
+    WHILE(POOL->NUM_TASKS_IN_QUEUE == 0){
 
-      if(pool->kill_when_idle == 1){
+      IF(POOL->KILL_WHEN_IDLE == 1){
 
-	pthread_mutex_unlock(&pool->modify_pool);
-	return NULL;
+	PTHREAD_MUTEX_UNLOCK(&POOL->MODIFY_POOL);
+	RETURN NULL;
       }
 
-      pthread_cond_wait(&pool->signal_change, &pool->modify_pool);
+      PTHREAD_COND_WAIT(&POOL->SIGNAL_CHANGE, &POOL->MODIFY_POOL);
 
-      //check for kill flag
-       if(pool->kill_immediately == 1){
+      //CHECK FOR KILL FLAG
+       IF(POOL->KILL_IMMEDIATELY == 1){
 
-	 pthread_mutex_unlock(&pool->modify_pool);
-	 return NULL;
+	 PTHREAD_MUTEX_UNLOCK(&POOL->MODIFY_POOL);
+	 RETURN NULL;
        }
     }
 
-    //at this point there must be a task available and the thread owns the modify_pool mutex
+    //AT THIS POINT THERE MUST BE A TASK AVAILABLE AND THE THREAD
+    //OWNS THE MODIFY_POOL MUTEX
 
-    //grab the new task
-    to_do = pull_task(pool);
+    //GRAB THE NEW TASK
+    TO_DO = PULL_TASK(POOL);
 
-    //free the mutex
-    pthread_mutex_unlock(&pool->modify_pool);
+    //FREE THE MUTEX
+    PTHREAD_MUTEX_UNLOCK(&POOL->MODIFY_POOL);
 
-    //call the function
-    to_do->function(to_do->arg);
+    //CALL THE FUNCTION
+    TO_DO->FUNCTION(TO_DO->ARG);
 
-    free(to_do);
-    to_do = NULL;
+    FREE(TO_DO);
+    TO_DO = NULL;
 
   }
 
-  return NULL;
+  RETURN NULL;
 }
 
-//threads complete their tasks and then close
-void close_immediately(struct thread_pool* pool){
+//THREADS COMPLETE THEIR TASKS AND THEN CLOSE
+VOID CLOSE_IMMEDIATELY(STRUCT THREAD_POOL* POOL){
     
-  pthread_mutex_lock(&pool->modify_pool);
+  PTHREAD_MUTEX_LOCK(&POOL->MODIFY_POOL);
 
-  pool->kill_immediately = 1;
+  POOL->KILL_IMMEDIATELY = 1;
 	
-  pthread_cond_broadcast(&pool->signal_change);
+  PTHREAD_COND_BROADCAST(&POOL->SIGNAL_CHANGE);
 
-  pthread_mutex_unlock(&pool->modify_pool);
+  PTHREAD_MUTEX_UNLOCK(&POOL->MODIFY_POOL);
 
-  return;
+  RETURN;
 }
 
-//flips kill_when_idle_flag and sends out signal
-void close_when_idle(struct thread_pool* pool){
+//FLIPS KILL_WHEN_IDLE_FLAG AND SENDS OUT SIGNAL
+VOID CLOSE_WHEN_IDLE(STRUCT THREAD_POOL* POOL){
 
-  pthread_mutex_lock(&pool->modify_pool);
+  PTHREAD_MUTEX_LOCK(&POOL->MODIFY_POOL);
 
-  pool->kill_when_idle = 1;
+  POOL->KILL_WHEN_IDLE = 1;
 
-  pthread_cond_broadcast(&pool->signal_change);
+  PTHREAD_COND_BROADCAST(&POOL->SIGNAL_CHANGE);
 
-  pthread_mutex_unlock(&pool->modify_pool);
+  PTHREAD_MUTEX_UNLOCK(&POOL->MODIFY_POOL);
 
-  return;
+  RETURN;
 }
 
-//waits for threads to be idle (queue empty and all tasks complete) before closing
-void destroy_pool_when_idle(struct thread_pool* pool){
+/*WAITS FOR THREADS TO BE IDLE (QUEUE EMPTY AND ALL TASKS COMPLETE)
+BEFORE CLOSING
+*/
+VOID DESTROY_POOL_WHEN_IDLE(STRUCT THREAD_POOL* POOL){
 
-  if(pool == NULL){
-    printf("ERROR: Parameter is not a valid thread_pool\n");
-    return;
+  IF(POOL == NULL){
+    PRINTF("ERROR: PARAMETER IS NOT A VALID THREAD_POOL\N");
+    RETURN;
   }
 
-  //give the close signal to the working or idle threads
-  close_when_idle(pool);
+  //GIVE THE CLOSE SIGNAL TO THE WORKING OR IDLE THREADS
+  CLOSE_WHEN_IDLE(POOL);
   
-  //free the linked list pointed to by pool->head_of_thread_info
-  struct thread_info* step_through = pool->thread_list;
-  struct thread_info* temp;
+  //FREE THE LINKED LIST POINTED TO BY POOL->HEAD_OF_THREAD_INFO
+  STRUCT THREAD_INFO* STEP_THROUGH = POOL->THREAD_LIST;
+  STRUCT THREAD_INFO* TEMP;
 
-  while(step_through != NULL){
+  WHILE(STEP_THROUGH != NULL){
 
-    if(pthread_join((step_through->thread), NULL) != 0){
-      printf("ERROR: %s\n", strerror(errno));
+    IF(PTHREAD_JOIN((STEP_THROUGH->THREAD), NULL) != 0){
+      PRINTF("ERROR: %S\N", STRERROR(ERRNO));
     }     
     
-    temp = step_through;
-    step_through = step_through->next;
-    free(temp);
+    TEMP = STEP_THROUGH;
+    STEP_THROUGH = STEP_THROUGH->NEXT;
+    FREE(TEMP);
   }    
   
-  free(pool);
-  pool = NULL;
-  return;
+  FREE(POOL);
+  POOL = NULL;
+  RETURN;
 }
 
-void destroy_pool_immediately(struct thread_pool* pool){
+VOID DESTROY_POOL_IMMEDIATELY(STRUCT THREAD_POOL* POOL){
 
-  if(pool == NULL){
-    printf("ERROR: Parameter is not a valid thread_pool\n");
-    return;
+  IF(POOL == NULL){
+    PRINTF("ERROR: PARAMETER IS NOT A VALID THREAD_POOL\N");
+    RETURN;
   }
    
   //stop the threads from idling or finish when done with current task
