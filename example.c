@@ -1,4 +1,7 @@
-/* This example program shows how to use the functions in queue.c and queue.h to create a queue serviced by multiple threads. 40 tasks are added to the queue. Each task consists of an insert sort function that sorts an array of 10000 random integers. 
+/* This example program shows how to use the functions in queue.c and
+queue.h to create a queue serviced by multiple threads. 40 tasks are
+added to the queue. Each task consists of an insert sort function that
+sorts an array of 10000 random integers. 
  */
 
 #define length 10000
